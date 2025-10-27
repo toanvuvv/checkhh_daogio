@@ -1,0 +1,81 @@
+{
+  "name": "electron-license-app",
+  "version": "1.0.0",
+  "description": "Electron App with License Management",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "dev:react": "vite",
+    "build:react": "vite build",
+    "build": "npm run build:react && node scripts/build.js",
+    "build:react-only": "node scripts/build-react.js",
+    "build:quick": "electron-builder --publish=never",
+    "build:production": "cross-env NODE_ENV=production electron-builder --publish=never",
+    "dist": "electron-builder --publish=never",
+    "create-icons": "node scripts/create-icon.js",
+    "security-check": "npm audit && npm outdated",
+    "test-security": "node src/utils/security-test.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "crypto-js": "^4.1.1"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.0"
+  },
+  "build": {
+    "appId": "com.yourcompany.electronlicenseapp",
+    "productName": "Electron License App",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "node_modules/**/*",
+      "!src/**/*.map",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
+      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
+      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
+      "!**/{appveyor.yml,.travis.yml,circle.yml}",
+      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+    ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "asar": true,
+    "compression": "maximum",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName}-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "${productName}",
+      "deleteAppDataOnUninstall": true,
+      "runAfterFinish": true,
+      "menuCategory": false,
+      "warningsAsErrors": false
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

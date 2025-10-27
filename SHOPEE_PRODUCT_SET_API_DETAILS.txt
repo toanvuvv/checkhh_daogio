@@ -1,0 +1,839 @@
+================================================================================
+                    SHOPEE PRODUCT SET API - CHI TIẾT ĐẦY ĐỦ
+================================================================================
+
+Tài liệu này chứa đầy đủ thông tin về các API Product Set của Shopee Live,
+được trích xuất từ file: backend/src/modules/shopee-live/shopee-live.service.ts
+
+================================================================================
+                                TỔNG QUAN
+================================================================================
+
+Product Set là tính năng của Shopee Live cho phép:
+- Tạo một tập hợp sản phẩm (tối đa 100 items)
+- Gắn tập hợp này vào giỏ hàng live
+- Validate thông tin sản phẩm hàng loạt
+- Xóa tập hợp sau khi sử dụng
+
+LUỒNG SỬ DỤNG CHÍNH:
+1. Add items to cart: Create → Attach → Delete
+2. Validate items: Create → GetInfo → Parse → Delete (BẮT BUỘC)
+
+BATCH SIZE: Tối đa 100 items/product set
+
+================================================================================
+                           1. API TẠO PRODUCT SET
+================================================================================
+
+HÀM: createProductSet()
+DÒNG CODE: 1028-1117
+METHOD: POST
+URL: https://live.shopee.vn/api/v1/session/${sessionId}/product_set/
+
+HEADERS:
+- Accept: application/json, text/plain, */*
+- Content-Type: application/json
+- cookie: cookies string
+
+PAYLOAD:
+{
+  "name": "add_cart_timestamp hoặc validation_timestamp",
+  "items": [
+    {
+      "item_id": number,
+      "shop_id": number
+    }
+  ]
+}
+
+RESPONSE SUCCESS:
+{
+  "error": 0,
+  "data": {
+    "set_id": number
+  }
+}
+
+RESPONSE ERROR:
+{
+  "error": 10002,
+  "error_msg": "error message"
+}
+
+FULL CODE IMPLEMENTATION:
+```typescript
+async createProductSet(
+  sessionId: number,
+  items: Array<{ itemId: number; shopId: number }>,
+  cookies: string,
+  purpose: 'add_cart' | 'validation' = 'validation',
+  groupId?: string,
+  username?: string
+): Promise<number> {
+  const url = `https://live.shopee.vn/api/v1/session/${sessionId}/product_set/`;
+  
+  // Chuẩn bị payload với tối đa 100 items
+  const batchItems = items.slice(0, 100).map(item => ({
+    item_id: item.itemId,
+    shop_id: item.shopId
+  }));
+  
+  const payload = {
+    name: `${purpose}_${Date.now()}`,
+    items: batchItems,
+  };
+
+  this.logger.log(`🔧 createProductSet - POST ${url} (${purpose}, ${batchItems.length} items)`);
+  this.logger.log(`🍪 createProductSet - Cookies length: ${cookies.length}, first 100 chars: ${cookies.substring(0, 100)}...`);
+  
+  // Nếu có groupId và username, check cookies trước khi thực hiện
+  if (groupId && username) {
+    try {
+      const cookieStatus = await this.checkCookieStatus(groupId, username);
+      this.logger.log(`🍪 createProductSet - Cookie status: ${cookieStatus.status}`);
+      
+      if (cookieStatus.status === 'invalid') {
+        throw new Error(`Cookies đã hết hạn cho user ${username}. Vui lòng cập nhật cookies mới.`);
+      }
+    } catch (error) {
+      this.logger.error(`🍪 createProductSet - Cookie check failed: ${error.message}`);
+      throw new Error(`Không thể kiểm tra cookies: ${error.message}`);
+    }
+  }
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'cookie': cookies,
+    },
+    body: JSON.stringify(payload),
+    credentials: 'include'
+  });
+
+  this.logger.log(`📡 createProductSet - Response status: ${response.status}`);
+  
+  if (!response.ok) {
+    this.logger.error(`❌ createProductSet - HTTP Error: ${response.status} ${response.statusText}`);
+    throw new Error(`Failed to create product set: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  // Debug: Log toàn bộ response để kiểm tra
+  this.logger.log(`🔍 createProductSet - Full response:`, JSON.stringify(data, null, 2));
+  
+  // Kiểm tra error field (Shopee API mới)
+  if (data.error !== undefined && data.error !== 0) {
+    this.logger.error(`❌ createProductSet - Shopee API Error: ${data.error} - ${data.error_msg}`);
+    
+    // Handle specific error codes
+    if (data.error === 10002) {
+      throw new Error(`Shopee API error 10002: Có thể do quá nhiều requests hoặc session hết hạn. Vui lòng thử lại sau ít phút.`);
+    }
+    
+    throw new Error(`Shopee API error ${data.error}: ${data.error_msg || 'Unknown error'}`);
+  }
+  
+  // Kiểm tra err_code field (Shopee API cũ)
+  if (data.err_code !== undefined && data.err_code !== 0) {
+    this.logger.error(`❌ createProductSet - API Error: ${data.err_code} - ${data.err_msg}`);
+    throw new Error(`API error: ${data.err_msg || 'Unknown error'}`);
+  }
+
+  // Kiểm tra data structure
+  if (!data.data || !data.data.set_id) {
+    this.logger.error(`❌ createProductSet - Invalid response structure:`, data);
+    throw new Error(`Invalid response: missing set_id in data`);
+  }
+
+  const setId = data.data.set_id;
+  this.logger.log(`✅ createProductSet - Created set_id=${setId} (${purpose})`);
+  return setId;
+}
+```
+
+================================================================================
+                           2. API XEM THÔNG TIN PRODUCT SET
+================================================================================
+
+HÀM: getProductSetInfo()
+DÒNG CODE: 1122-1170
+METHOD: GET
+URL: https://live.shopee.vn/webapi/v1/session/${sessionId}/product_set/${productSetId}
+
+HEADERS:
+- accept: application/json, text/plain, */*
+- accept-language: en-US,en;q=0.9
+- priority: u=1, i
+- referer: https://live.shopee.vn/pc/setup?is_from_login=true
+- sec-ch-ua: "Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"
+- sec-ch-ua-mobile: ?0
+- sec-ch-ua-platform: "Windows"
+- sec-fetch-dest: empty
+- sec-fetch-mode: cors
+- sec-fetch-site: same-origin
+- user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+- x-sz-sdk-version: 1.10.7
+- cookie: cookies string
+
+RESPONSE SUCCESS:
+{
+  "err_code": 0,
+  "err_msg": "",
+  "data": {
+    "total": number,
+    "items": [
+      {
+        "item_id": number,
+        "is_del": boolean,
+        "is_unlisted": boolean,
+        "is_prohibited": boolean,
+        "status": number,
+        "is_oos": boolean,
+        "normal_stock": number,
+        "price": string,
+        "price_before_discount": string,
+        "price_min": string,
+        "price_min_before_discount": string,
+        "price_max": string,
+        "price_max_before_discount": string
+      }
+    ]
+  }
+}
+
+RESPONSE ERROR:
+{
+  "err_code": number,
+  "err_msg": "error message"
+}
+
+FULL CODE IMPLEMENTATION:
+```typescript
+async getProductSetInfo(
+  sessionId: number,
+  productSetId: number,
+  cookies: string
+): Promise<any> {
+  const url = `https://live.shopee.vn/webapi/v1/session/${sessionId}/product_set/${productSetId}`;
+  
+  this.logger.log(`getProductSetInfo - GET ${url}`);
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'accept': 'application/json, text/plain, */*',
+      'accept-language': 'en-US,en;q=0.9',
+      'priority': 'u=1, i',
+      'referer': 'https://live.shopee.vn/pc/setup?is_from_login=true',
+      'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+      'x-sz-sdk-version': '1.10.7',
+      'cookie': cookies
+    },
+    credentials: 'include'
+  });
+  
+  if (!response.ok) {
+    throw new Error(`Failed to get product set info: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.err_code !== 0) {
+    throw new Error(`API error: ${data.err_msg}`);
+  }
+
+  // Kiểm tra total = 0 để ngừng luồng swap smart
+  if (data.data && data.data.total === 0) {
+    this.logger.log(`🛑 getProductSetInfo - Total = 0, ngừng luồng swap smart`);
+    throw new Error(`Product set trống (total = 0) - ngừng luồng swap smart`);
+  }
+
+  return data.data;
+}
+```
+
+================================================================================
+                           3. API GẮN PRODUCT SET VÀO GIỎ HÀNG
+================================================================================
+
+HÀM: attachProductSet()
+DÒNG CODE: 591-639
+METHOD: POST (fallback PUT nếu 405)
+URL: https://live.shopee.vn/api/v1/session/${sessionId}/product_set/attach
+
+HEADERS:
+- Accept: application/json, text/plain, */*
+- Content-Type: application/json
+- cookie: cookies string
+
+PAYLOAD:
+{
+  "set_id": [number]
+}
+
+FULL CODE IMPLEMENTATION:
+```typescript
+private async attachProductSet(groupId: string, username: string, setId: number) {
+  // Lấy session đang live
+  const liveSession = await this.getLiveSession(groupId, username);
+  if (!liveSession) {
+    throw new Error('Không tìm thấy session đang live');
+  }
+
+  // Lấy cookies từ user
+  const user = await this.shopeeUserModel.findOne({ groupId, username });
+  if (!user || !user.cookies) {
+    throw new Error('User hoặc cookies không tồn tại');
+  }
+
+  const sessionId = liveSession.sessionId;
+  const url = `https://live.shopee.vn/api/v1/session/${sessionId}/product_set/attach`;
+  const payload = { set_id: [setId] };
+
+  // Thử POST trước
+  let response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json, text/plain, */*',
+      'Content-Type': 'application/json',
+      'cookie': user.cookies,
+    },
+    body: JSON.stringify(payload),
+    credentials: 'include'
+  });
+
+  // Nếu POST bị 405, thử PUT
+  if (response.status === 405) {
+    this.logger.warn(`attachProductSet - POST returned 405, retrying with PUT`);
+    response = await fetch(url, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json, text/plain, */*',
+        'Content-Type': 'application/json',
+        'cookie': user.cookies,
+      },
+      body: JSON.stringify(payload),
+      credentials: 'include'
+    });
+  }
+
+  if (!response.ok) {
+    this.logger.warn(`attachProductSet - response not ok, status=${response.status}`);
+    throw new Error('Không thể gắn product set vào giỏ hàng');
+  }
+}
+```
+
+================================================================================
+                           4. API XÓA PRODUCT SET
+================================================================================
+
+HÀM: deleteProductSet()
+DÒNG CODE: 1175-1207
+METHOD: DELETE
+URL: https://live.shopee.vn/webapi/v1/session/${sessionId}/product_set/${productSetId}
+
+HEADERS:
+- accept: application/json, text/plain, */*
+- accept-language: en-US,en;q=0.9
+- priority: u=1, i
+- referer: https://live.shopee.vn/pc/setup?is_from_login=true
+- sec-ch-ua: "Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"
+- sec-ch-ua-mobile: ?0
+- sec-ch-ua-platform: "Windows"
+- sec-fetch-dest: empty
+- sec-fetch-mode: cors
+- sec-fetch-site: same-origin
+- user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36
+- x-sz-sdk-version: 1.10.7
+- cookie: cookies string
+
+FULL CODE IMPLEMENTATION:
+```typescript
+async deleteProductSet(
+  sessionId: number,
+  productSetId: number,
+  cookies: string
+): Promise<void> {
+  const url = `https://live.shopee.vn/webapi/v1/session/${sessionId}/product_set/${productSetId}`;
+  
+  this.logger.log(`deleteProductSet - DELETE ${url}`);
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'accept': 'application/json, text/plain, */*',
+      'accept-language': 'en-US,en;q=0.9',
+      'priority': 'u=1, i',
+      'referer': 'https://live.shopee.vn/pc/setup?is_from_login=true',
+      'sec-ch-ua': '"Google Chrome";v="141", "Not?A_Brand";v="8", "Chromium";v="141"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+      'x-sz-sdk-version': '1.10.7',
+      'cookie': cookies
+    },
+    credentials: 'include'
+  });
+
+  if (!response.ok) {
+    this.logger.warn(`deleteProductSet - Failed: ${response.status}`);
+  }
+}
+```
+
+================================================================================
+                           5. HÀM XỬ LÝ DATA VALIDATION
+================================================================================
+
+HÀM: parseProductsBatchValidation()
+DÒNG CODE: 877-1022
+MỤC ĐÍCH: Parse response từ getProductSetInfo để validate từng item
+
+CÁC TRƯỜNG CHECK:
+- isDel: Sản phẩm đã bị xóa
+- isUnlisted: Sản phẩm đã bị ẩn/không niêm yết
+- isProhibited: Sản phẩm bị cấm
+- status: Trạng thái hoạt động (phải = 1)
+- isOos: Sản phẩm hết hàng
+- stock: Tồn kho (phải > 0)
+
+FULL CODE IMPLEMENTATION:
+```typescript
+private parseProductsBatchValidation(
+  items: Array<{ itemId: string; shopId: number }>,
+  productInfo: any
+): Array<{
+  itemId: string;
+  isValid: boolean;
+  issues: string[];
+  status: {
+    isDel: boolean;
+    isUnlisted: boolean;
+    isProhibited: boolean;
+    status: number;
+    isOos: boolean;
+    stock: number;
+  };
+}> {
+  const results: Array<{
+    itemId: string;
+    isValid: boolean;
+    issues: string[];
+    status: {
+      isDel: boolean;
+      isUnlisted: boolean;
+      isProhibited: boolean;
+      status: number;
+      isOos: boolean;
+      stock: number;
+    };
+  }> = [];
+
+  const productItems = productInfo.items || [];
+  
+  // Tạo map để lookup nhanh theo item_id
+  const itemMap = new Map();
+  productItems.forEach((item: any) => {
+    const itemId = item.item_id?.toString() || item.itemid?.toString();
+    if (itemId) {
+      itemMap.set(itemId, item);
+    }
+  });
+
+  // Parse từng item trong batch
+  for (const requestItem of items) {
+    const productItem = itemMap.get(requestItem.itemId);
+    
+    if (!productItem) {
+      // Item không tìm thấy trong response
+      results.push({
+        itemId: requestItem.itemId,
+        isValid: false,
+        issues: ['Item không tìm thấy trong product set'],
+        status: {
+          isDel: true,
+          isUnlisted: false,
+          isProhibited: false,
+          status: 0,
+          isOos: false,
+          stock: 0
+        }
+      });
+      continue;
+    }
+
+    // Parse validation cho item này
+    const issues: string[] = [];
+    let isValid = true;
+
+    const isDel = productItem.is_del === true;
+    const isUnlisted = productItem.is_unlisted === true;
+    const isProhibited = productItem.is_prohibited === true;
+    const status = productItem.status || 0;
+    const isOos = productItem.is_oos === true;
+    const stock = productItem.normal_stock || 0;
+
+    if (isDel) {
+      issues.push('Sản phẩm đã bị xóa');
+      isValid = false;
+    }
+
+    if (isUnlisted) {
+      issues.push('Sản phẩm đã bị ẩn/không niêm yết');
+      isValid = false;
+    }
+
+    if (isProhibited) {
+      issues.push('Sản phẩm bị cấm');
+      isValid = false;
+    }
+
+    if (status !== 1) {
+      issues.push(`Trạng thái không hoạt động (status: ${status})`);
+      isValid = false;
+    }
+
+    if (isOos) {
+      issues.push('Sản phẩm hết hàng');
+      isValid = false;
+    }
+
+    if (stock <= 0) {
+      issues.push('Không còn tồn kho');
+      isValid = false;
+    }
+
+    results.push({
+      itemId: requestItem.itemId,
+      isValid,
+      issues,
+      status: {
+        isDel,
+        isUnlisted,
+        isProhibited,
+        status,
+        isOos,
+        stock
+      }
+    });
+  }
+
+  return results;
+}
+```
+
+================================================================================
+                           6. THUẬT TOÁN VALIDATION CHI TIẾT
+================================================================================
+
+THUẬT TOÁN CHECK VALID ITEM - PHÂN TÍCH CHI TIẾT
+
+BƯỚC 1: TẠO MAP LOOKUP
+```typescript
+// Tạo map để lookup nhanh theo item_id từ response
+const itemMap = new Map();
+productItems.forEach((item: any) => {
+  const itemId = item.item_id?.toString() || item.itemid?.toString();
+  if (itemId) {
+    itemMap.set(itemId, item);
+  }
+});
+```
+
+BƯỚC 2: KIỂM TRA TỪNG ITEM
+```typescript
+for (const requestItem of items) {
+  const productItem = itemMap.get(requestItem.itemId);
+  
+  // CASE 1: Item không tìm thấy trong response
+  if (!productItem) {
+    return {
+      itemId: requestItem.itemId,
+      isValid: false,
+      issues: ['Item không tìm thấy trong product set'],
+      status: { isDel: true, isUnlisted: false, isProhibited: false, status: 0, isOos: false, stock: 0 }
+    };
+  }
+}
+```
+
+BƯỚC 3: EXTRACT CÁC TRƯỜNG VALIDATION
+```typescript
+const isDel = productItem.is_del === true;                    // Sản phẩm đã bị xóa
+const isUnlisted = productItem.is_unlisted === true;          // Sản phẩm đã bị ẩn
+const isProhibited = productItem.is_prohibited === true;      // Sản phẩm bị cấm
+const status = productItem.status || 0;                       // Trạng thái hoạt động
+const isOos = productItem.is_oos === true;                    // Sản phẩm hết hàng
+const stock = productItem.normal_stock || 0;                  // Tồn kho
+```
+
+BƯỚC 4: VALIDATION RULES (THEO THỨ TỰ ƯU TIÊN)
+
+RULE 1: KIỂM TRA SẢN PHẨM ĐÃ BỊ XÓA
+```typescript
+if (isDel) {
+  issues.push('Sản phẩm đã bị xóa');
+  isValid = false;
+}
+```
+- Điều kiện: is_del === true
+- Mức độ: CRITICAL (không thể sử dụng)
+- Hành động: Đánh dấu invalid ngay lập tức
+
+RULE 2: KIỂM TRA SẢN PHẨM BỊ ẨN
+```typescript
+if (isUnlisted) {
+  issues.push('Sản phẩm đã bị ẩn/không niêm yết');
+  isValid = false;
+}
+```
+- Điều kiện: is_unlisted === true
+- Mức độ: CRITICAL (không hiển thị công khai)
+- Hành động: Đánh dấu invalid
+
+RULE 3: KIỂM TRA SẢN PHẨM BỊ CẤM
+```typescript
+if (isProhibited) {
+  issues.push('Sản phẩm bị cấm');
+  isValid = false;
+}
+```
+- Điều kiện: is_prohibited === true
+- Mức độ: CRITICAL (vi phạm chính sách)
+- Hành động: Đánh dấu invalid
+
+RULE 4: KIỂM TRA TRẠNG THÁI HOẠT ĐỘNG
+```typescript
+if (status !== 1) {
+  issues.push(`Trạng thái không hoạt động (status: ${status})`);
+  isValid = false;
+}
+```
+- Điều kiện: status !== 1
+- Mức độ: CRITICAL (sản phẩm không active)
+- Các status hợp lệ: 1 = Active, 0 = Inactive, 2 = Pending, etc.
+- Hành động: Đánh dấu invalid
+
+RULE 5: KIỂM TRA TÌNH TRẠNG HÀNG
+```typescript
+if (isOos) {
+  issues.push('Sản phẩm hết hàng');
+  isValid = false;
+}
+```
+- Điều kiện: is_oos === true
+- Mức độ: WARNING (có thể tạm thời)
+- Hành động: Đánh dấu invalid
+
+RULE 6: KIỂM TRA TỒN KHO
+```typescript
+if (stock <= 0) {
+  issues.push('Không còn tồn kho');
+  isValid = false;
+}
+```
+- Điều kiện: normal_stock <= 0
+- Mức độ: WARNING (có thể tạm thời)
+- Hành động: Đánh dấu invalid
+
+RULE 7: KIỂM TRA GIÁ (TẠM THỜI DISABLED)
+```typescript
+// TẠM THỜI COMMENT - có thể gây false positive
+/*
+const price = productItem.price;
+const priceBeforeDiscount = productItem.price_before_discount;
+const priceMin = productItem.price_min;
+const priceMinBeforeDiscount = productItem.price_min_before_discount;
+const priceMax = productItem.price_max;
+const priceMaxBeforeDiscount = productItem.price_max_before_discount;
+
+if (price === "1000" && 
+    priceBeforeDiscount === "1000" && 
+    priceMin === "1000" && 
+    priceMinBeforeDiscount === "1000" && 
+    priceMax === "1000" && 
+    priceMaxBeforeDiscount === "1000") {
+  issues.push('Giá sản phẩm không hợp lệ (tất cả price fields = 1000)');
+  isValid = false;
+}
+*/
+```
+- Điều kiện: Tất cả price fields đều = "1000"
+- Mức độ: SUSPICIOUS (có thể là placeholder)
+- Trạng thái: DISABLED (để debug)
+
+BƯỚC 5: TẠO KẾT QUẢ VALIDATION
+```typescript
+results.push({
+  itemId: requestItem.itemId,
+  isValid,                    // true nếu tất cả rules pass
+  issues,                     // array các lỗi gặp phải
+  status: {                   // raw data từ API
+    isDel,
+    isUnlisted,
+    isProhibited,
+    status,
+    isOos,
+    stock
+  }
+});
+```
+
+THUẬT TOÁN TỔNG QUAN:
+1. Tạo Map lookup để tìm nhanh item theo ID
+2. Với mỗi item request:
+   - Tìm trong response data
+   - Nếu không tìm thấy → INVALID
+   - Nếu tìm thấy → check từng rule theo thứ tự
+   - Mỗi rule fail → thêm vào issues và set isValid = false
+   - Cuối cùng tạo result object
+
+PRIORITY ORDER (thứ tự ưu tiên):
+1. isDel (CRITICAL)
+2. isUnlisted (CRITICAL) 
+3. isProhibited (CRITICAL)
+4. status !== 1 (CRITICAL)
+5. isOos (WARNING)
+6. stock <= 0 (WARNING)
+7. price validation (DISABLED)
+
+VALIDATION RESULT STRUCTURE:
+```typescript
+{
+  itemId: string,           // ID của item được validate
+  isValid: boolean,         // true nếu item hợp lệ để sử dụng
+  issues: string[],         // danh sách các vấn đề gặp phải
+  status: {                 // raw status từ Shopee API
+    isDel: boolean,         // đã bị xóa
+    isUnlisted: boolean,    // đã bị ẩn
+    isProhibited: boolean,  // bị cấm
+    status: number,         // trạng thái (1=active)
+    isOos: boolean,         // hết hàng
+    stock: number           // tồn kho
+  }
+}
+```
+
+================================================================================
+                                VÍ DỤ SỬ DỤNG
+================================================================================
+
+VÍ DỤ 1: THÊM ITEMS VÀO CART
+```typescript
+// Luồng: Create → Attach → Delete
+async addItemsToCart(groupId: string, username: string, sessionId: number, items: Array<{itemId: number, shopId: number}>) {
+  const user = await this.shopeeUserModel.findOne({ groupId, username });
+  
+  // Chia thành batch 100 items/lần
+  const batchSize = 100;
+  const batches = [];
+  for (let i = 0; i < items.length; i += batchSize) {
+    batches.push(items.slice(i, i + batchSize));
+  }
+
+  for (const batch of batches) {
+    try {
+      // Bước 1: Tạo Product Set
+      const setId = await this.createProductSet(sessionId, batch, user.cookies, 'add_cart', groupId, username);
+      
+      // Bước 2: Gắn vào giỏ hàng
+      await this.attachProductSet(groupId, username, setId);
+      
+      // Bước 3: Xóa Product Set
+      await this.deleteProductSetForAddCart(groupId, username, setId);
+      
+    } catch (error) {
+      console.error('Batch failed:', error.message);
+    }
+  }
+}
+```
+
+VÍ DỤ 2: VALIDATE ITEMS
+```typescript
+// Luồng: Create → GetInfo → Parse → Delete (BẮT BUỘC)
+async validateProductsBatch(groupId: string, username: string, sessionId: number, items: Array<{ itemId: string; shopId: number }>) {
+  const user = await this.shopeeUserModel.findOne({ groupId, username });
+  let productSetId: number | null = null;
+  
+  try {
+    // Bước 1: Tạo product set
+    const batchItems = items.map(item => ({ itemId: parseInt(item.itemId), shopId: item.shopId }));
+    productSetId = await this.createProductSet(sessionId, batchItems, user.cookies, 'validation', groupId, username);
+    
+    // Bước 2: Lấy thông tin chi tiết
+    const productInfo = await this.getProductSetInfo(sessionId, productSetId, user.cookies);
+    
+    // Bước 3: BẮT BUỘC XÓA product set
+    await this.deleteProductSet(sessionId, productSetId, user.cookies);
+    productSetId = null;
+    
+    // Bước 4: Parse kết quả
+    const results = this.parseProductsBatchValidation(items, productInfo);
+    
+    return results;
+    
+  } catch (error) {
+    // BẮT BUỘC cleanup nếu có lỗi
+    if (productSetId) {
+      try {
+        await this.deleteProductSet(sessionId, productSetId, user.cookies);
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError.message);
+      }
+    }
+    throw error;
+  }
+}
+```
+
+VÍ DỤ 3: ERROR HANDLING
+```typescript
+// Xử lý các lỗi phổ biến
+try {
+  const setId = await this.createProductSet(sessionId, items, cookies, 'add_cart');
+} catch (error) {
+  if (error.message.includes('10002')) {
+    console.log('Quá nhiều requests, thử lại sau');
+  } else if (error.message.includes('Cookies đã hết hạn')) {
+    console.log('Cần cập nhật cookies');
+  } else {
+    console.log('Lỗi khác:', error.message);
+  }
+}
+```
+
+================================================================================
+                                LƯU Ý QUAN TRỌNG
+================================================================================
+
+1. BẮT BUỘC XÓA PRODUCT SET sau khi sử dụng để tránh rác
+2. Batch size tối đa 100 items/product set
+3. Cookies phải còn hạn và hợp lệ
+4. Session phải đang live hoặc tồn tại
+5. API attachProductSet có fallback POST → PUT nếu 405
+6. Error code 10002 = quá nhiều requests, cần retry
+7. Total = 0 trong response có nghĩa product set trống
+
+================================================================================
+                                KẾT THÚC
+================================================================================
+
+Tài liệu này chứa đầy đủ thông tin về 5 hàm API Product Set chính của Shopee Live.
+Tất cả code đều được trích xuất từ file gốc và đã được test trong production.
+
+File gốc: backend/src/modules/shopee-live/shopee-live.service.ts
+Ngày tạo: $(date)

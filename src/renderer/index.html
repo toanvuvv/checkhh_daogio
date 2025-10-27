@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' http://127.0.0.1:8000;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <title>Tool Check Shopee Nâng cao</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+        
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 20px 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar.locked {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .sidebar h2 {
+            padding: 0 20px 20px;
+            color: #667eea;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 20px;
+        }
+        
+        .nav-item {
+            display: block;
+            padding: 15px 20px;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border-left-color: #667eea;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .content-page {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .content-page.active {
+            display: block;
+        }
+        
+        /* License Form */
+        .license-form {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin: 20px 0;
+            max-width: 600px;
+            margin: 50px auto;
+        }
+        
+        .license-form.standalone {
+            margin: 0;
+            text-align: center;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        
+        .license-form.show {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(23, 162, 184, 0.4);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+        
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .status.warning {
+            background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .device-info {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .device-info strong {
+            display: block;
+            margin-bottom: 10px;
+            color: #495057;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .device-info span {
+            color: #6c757d;
+            word-break: break-all;
+            line-height: 1.4;
+            font-size: 12px;
+        }
+        
+        .license-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+        
+        .license-card h3 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .license-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .license-detail:last-child {
+            border-bottom: none;
+        }
+        
+        .license-detail strong {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .license-detail span {
+            color: #666;
+        }
+        
+        .welcome-page {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        
+        .welcome-page h1 {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .welcome-page p {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 40px;
+        }
+        
+        .feature-card {
+            background: rgba(255, 255, 255, 0.8);
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        /* License Lock Overlay */
+        .license-lock-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .license-lock-overlay.show {
+            display: flex;
+        }
+        
+        .lock-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 500px;
+            margin: 20px;
+        }
+        
+        .lock-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            color: #dc3545;
+        }
+        
+        .lock-title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 700;
+        }
+        
+        .lock-message {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        
+        .lock-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn-lock {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-activate {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-activate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-exit {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-exit:hover {
+            background: #5a6268;
+        }
+        
+        /* Shopee Management Styles */
+        .shopee-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .management-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .management-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 24px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+            transition: border-color 0.3s ease;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .user-list {
+            margin-top: 30px;
+        }
+        
+        .user-list h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .user-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .user-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .user-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .user-status.valid {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .user-status.invalid {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .user-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+        }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        #progress-text {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        /* Filter Controls */
+        .filter-controls {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .quick-configs {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .quick-configs h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .advanced-configs {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        .advanced-configs h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .config-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        
+        .saved-configs {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #dee2e6;
+        }
+        
+        .saved-configs h4 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .config-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .config-btn {
+            padding: 8px 16px;
+            border: 2px solid #667eea;
+            border-radius: 6px;
+            background: white;
+            color: #667eea;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .config-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
+        }
+        
+        .config-btn.active {
+            background: #667eea;
+            color: white;
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .config-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .config-actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .config-actions button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .config-actions .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .config-actions .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+        
+        .summary-section {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .summary-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        /* Enhanced Filter Form Styles */
+        .filter-controls {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        
+        .filter-controls h3 {
+            color: #495057;
+            margin-bottom: 20px;
+            font-size: 20px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-controls .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .filter-controls .form-group {
+            margin-bottom: 0;
+        }
+        
+        .filter-controls .form-group label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        .filter-controls input[type="number"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            background: white;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .filter-controls input[type="number"]:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .filter-controls input[type="number"]:hover {
+            border-color: #adb5bd;
+        }
+        
+        .filter-controls .form-row:last-of-type {
+            margin-bottom: 0;
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group button {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group .btn-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #ff8c00 100%);
+            color: white;
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        
+        .filter-controls .form-row:last-of-type .form-group .btn-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: white;
+        }
+        
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        .results-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .results-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-valid {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-invalid {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .issues-list {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .issue-item {
+            margin: 2px 0;
+            padding: 2px 4px;
+            background: #fff3cd;
+            border-radius: 3px;
+        }
+        
+        /* Copy button styles */
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+            margin-left: 5px;
+        }
+        
+        .copy-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+        }
+        
+        .copy-btn:active {
+            transform: translateY(0);
+        }
+        
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .user-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .user-actions {
+                margin-top: 10px;
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <h2>Tool Check Shopee Nâng cao</h2>
+            <a href="#" class="nav-item active" onclick="showPage('welcome')">
+                🏠 Welcome
+            </a>
+            <a href="#" class="nav-item" onclick="showPage('license-management')">
+                🔐 License Management
+            </a>
+            <a href="#" class="nav-item" onclick="showPage('shopee-management')">
+                🛒 Shopee Management
+            </a>
+            <a href="#" class="nav-item" onclick="showPage('hello-world')">
+                👋 Hello World
+            </a>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- License Activation Form -->
+            <div id="license-form" class="license-form">
+                <h3>🔐 License Activation</h3>
+                <p>Please enter your license key to continue:</p>
+                
+                <div class="form-group">
+                    <label for="license-key">License Key:</label>
+                    <input type="text" id="license-key" placeholder="XXXX-XXXX-XXXX-XXXX">
+                </div>
+                
+                <button class="btn btn-primary" onclick="activateLicense()">Activate License</button>
+                <button class="btn btn-secondary" onclick="hideLicenseForm()">Cancel</button>
+                <button class="btn btn-warning" onclick="debugDeviceId()" style="margin-top: 10px;">🔍 Debug Device ID</button>
+                
+                <div class="device-info">
+                    <strong>Device ID:</strong>
+                    <span id="device-id"></span>
+                </div>
+            </div>
+            
+            <!-- Status Messages -->
+            <div id="status"></div>
+            
+            <!-- Welcome Page -->
+            <div id="welcome-page" class="content-page active">
+                <div class="welcome-page">
+                    <h1>🎉 Welcome!</h1>
+                    <p>Your license is active and valid.</p>
+                    
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h3>🔐 Secure License</h3>
+                            <p>Your application is protected with advanced license management system</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>⚡ Fast Performance</h3>
+                            <p>Optimized for speed and efficiency</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>🛡️ Device Protection</h3>
+                            <p>Hardware-based device fingerprinting for security</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- License Management Page -->
+            <div id="license-management-page" class="content-page">
+                <div class="license-card">
+                    <h3>📋 License Information</h3>
+                    <div id="license-details"></div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="showLicenseInfo()">Refresh License Info</button>
+                    <button class="btn btn-warning" onclick="forceValidateLicense()">Force Validate</button>
+                    <button class="btn btn-warning" onclick="clearCacheAndValidate()">Clear Cache & Validate</button>
+                    <button class="btn btn-danger" onclick="deactivateLicense()">Deactivate License</button>
+                </div>
+            </div>
+            
+            <!-- Shopee Management Page -->
+            <div id="shopee-management-page" class="content-page">
+                <div class="shopee-container">
+                    <h1>🛒 Shopee Management</h1>
+                    
+                    <!-- Cookie & Session Management -->
+                    <div class="management-section">
+                        <h2>🍪 Cookie & Session Management</h2>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="username">Username:</label>
+                                <input type="text" id="username" placeholder="Nhập username">
+                            </div>
+                            <div class="form-group">
+                                <label for="session-id">Session ID:</label>
+                                <input type="text" id="session-id" placeholder="Nhập session ID">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="cookies">Cookies:</label>
+                            <textarea id="cookies" rows="4" placeholder="Nhập cookies string..."></textarea>
+                        </div>
+                        
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="saveUserData()">💾 Lưu User Data</button>
+                            <button class="btn btn-secondary" onclick="loadUserData()">📂 Load User Data</button>
+                            <button class="btn btn-warning" onclick="clearUserData()">🗑️ Clear User Data</button>
+                        </div>
+                        
+                        <div class="user-list">
+                            <h3>👥 Danh sách Users</h3>
+                            <div id="user-list-content"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Product Analysis -->
+                    <div class="management-section">
+                        <h2>🔍 Product Analysis</h2>
+                        
+                        <div class="form-group">
+                            <label for="product-links">Product Links (mỗi link một dòng):</label>
+                            <textarea id="product-links" rows="6" placeholder="https://shopee.vn/product/1506174776/27240240844&#10;https://shopee.vn/product/1506174776/27240240845&#10;..."></textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="selected-user">Chọn User:</label>
+                                <select id="selected-user">
+                                    <option value="">-- Chọn user --</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-primary" onclick="analyzeProducts()">🔍 Phân tích sản phẩm</button>
+                                <button class="btn btn-secondary" onclick="clearResults()" style="margin-left: 10px;">🗑️ Xóa kết quả</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div id="progress-container" style="display: none;">
+                            <div class="progress-bar">
+                                <div id="progress-fill" class="progress-fill"></div>
+                            </div>
+                            <div id="progress-text">Đang xử lý...</div>
+                        </div>
+                        
+                        <!-- Batch Processing Info -->
+                        <div id="batch-info"></div>
+                    </div>
+                    
+                    <!-- Results Table -->
+                    <div class="management-section">
+                        <h2>📊 Kết quả phân tích</h2>
+                        
+                        <!-- Simple Filter Controls -->
+                        <div class="filter-controls">
+                            <h3>🔍 Filter đơn giản</h3>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="commission-min">💰 Hoa hồng từ (%):</label>
+                                    <input type="number" id="commission-min" placeholder="0" min="0" max="100" step="0.1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="commission-max">💰 Hoa hồng đến (%):</label>
+                                    <input type="number" id="commission-max" placeholder="100" min="0" max="100" step="0.1">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="price-min">💵 Giá từ (VND):</label>
+                                    <input type="number" id="price-min" placeholder="0" min="0" step="1000">
+                                </div>
+                                <div class="form-group">
+                                    <label for="price-max">💵 Giá đến (VND):</label>
+                                    <input type="number" id="price-max" placeholder="10000000" min="0" step="1000">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="stock-min">📦 Tồn kho từ:</label>
+                                    <input type="number" id="stock-min" placeholder="0" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="stock-max">📦 Tồn kho đến:</label>
+                                    <input type="number" id="stock-max" placeholder="10000" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <button class="btn btn-primary" onclick="applyCurrentFilter()">🔍 Áp dụng lọc</button>
+                                    <button class="btn btn-warning" onclick="clearCurrentFilter()">🧹 Xóa lọc</button>
+                                    <button class="btn btn-success" onclick="exportToExcel()">📊 Xuất Excel (Tất cả)</button>
+                                    <button class="btn btn-secondary" onclick="copyAllLinks()">📋 Copy Links (Tất cả)</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Nút cho kết quả đã lọc -->
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <button class="btn btn-info" onclick="exportFilteredToExcel()">📊 Xuất Excel (Đã lọc)</button>
+                                    <button class="btn btn-primary" onclick="copyFilteredLinks()">📋 Copy Links (Đã lọc)</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Saved Filter Configs -->
+                            <div class="saved-configs">
+                                <h4>💾 Filter đã lưu:</h4>
+                                <div class="config-buttons" id="simple-filter-buttons">
+                                    <!-- Saved filter config buttons will be populated here -->
+                                </div>
+                                <div class="config-actions">
+                                    <button class="btn btn-primary btn-small" onclick="showSimpleFilterBuilder()">💾 Lưu config hiện tại</button>
+                                    <button class="btn btn-secondary btn-small" onclick="manageFilterConfigs()">⚙️ Quản lý configs</button>
+                                    <button class="btn btn-warning btn-small" onclick="testShowSimpleFilterBuilder()">🧪 Test Modal</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Summary -->
+                        <div class="summary-section">
+                            <h3>📈 Tổng kết</h3>
+                            <div id="summary-stats"></div>
+                        </div>
+                        
+                        <!-- Search Box -->
+                        <div class="search-section" style="margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label for="product-search">🔍 Tìm kiếm theo tên sản phẩm:</label>
+                                <input type="text" id="product-search" placeholder="Nhập tên sản phẩm để tìm kiếm..." style="width: 100%; padding: 12px 16px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px;">
+                            </div>
+                        </div>
+
+                        <!-- Results Table -->
+                        <div class="table-container">
+                            <table id="results-table" class="results-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tên sản phẩm</th>
+                                        <th>% Hoa hồng</th>
+                                        <th>Giá</th>
+                                        <th>Trạng thái</th>
+                                        <th>Vấn đề</th>
+                                        <th>Tồn kho</th>
+                                        <th>Link</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="results-tbody">
+                                    <!-- Results will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Hello World Page -->
+            <div id="hello-world-page" class="content-page">
+                <div class="welcome-page">
+                    <h1>👋 Hello World!</h1>
+                    <p>This is your basic application page.</p>
+                    <p>You can develop your features here.</p>
+                    
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h3>🚀 Ready to Code</h3>
+                            <p>Start building your amazing features</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>📱 Responsive Design</h3>
+                            <p>Beautiful UI that works on all devices</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3>🔧 Easy to Extend</h3>
+                            <p>Modular architecture for easy development</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- License Lock Overlay -->
+    <div id="license-lock-overlay" class="license-lock-overlay">
+        <div class="lock-content">
+            <div class="lock-icon">🔒</div>
+            <div class="lock-title">License Required</div>
+            <div class="lock-message">
+                This application requires a valid license to continue.<br>
+                Please activate your license to access all features.
+            </div>
+            <div class="lock-actions">
+                <button class="btn-lock btn-activate" onclick="showLicenseForm()">
+                    Activate License
+                </button>
+                <button class="btn-lock btn-exit" onclick="exitApp()">
+                    Exit Application
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+    <script src="shopee-management.js"></script>
+    <script src="simple-filter.js"></script>
+</body>
+</html>
