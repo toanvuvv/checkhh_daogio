@@ -12,6 +12,7 @@ const SimpleFilter = ({ results = [], onFilteredResults }) => {
         filterConditions,
         updateFilterCondition,
         applyCurrentFilter,
+        applySimpleFilter,
         clearFilter,
         createFilterConfig,
         applyFilterConfig,
@@ -77,9 +78,9 @@ const SimpleFilter = ({ results = [], onFilteredResults }) => {
         try {
             const result = await applyFilterConfig(configId);
             
-            if (result.success) {
-                // Auto-apply filter after loading config
-                const filtered = applyCurrentFilter(results);
+            if (result.success && result.config) {
+                // Apply filter using the config's conditions directly
+                const filtered = applySimpleFilter(results, result.config.conditions);
                 if (onFilteredResults) {
                     onFilteredResults(filtered);
                 }

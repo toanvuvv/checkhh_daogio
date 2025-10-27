@@ -9,6 +9,9 @@ const FilterConfig = require('./utils/filter-config');
 const AdvancedFilter = require('./utils/advanced-filter');
 const SimpleFilter = require('./utils/simple-filter');
 
+// Fix Windows focus issues
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
 // Security: Set up CSP and other security headers
 app.whenReady().then(() => {
     // Set up security headers
@@ -46,6 +49,7 @@ function createWindow() {
         width: 1200,
         height: 800,
         show: false, // Ẩn window ban đầu để tránh flash
+        focusable: true, // Đảm bảo window có thể focus
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -54,7 +58,8 @@ function createWindow() {
             webSecurity: true,
             allowRunningInsecureContent: false,
             experimentalFeatures: false,
-            devTools: process.env.NODE_ENV === 'development' // Chỉ cho phép DevTools trong development
+            devTools: process.env.NODE_ENV === 'development', // Chỉ cho phép DevTools trong development
+            backgroundThrottling: false // Tránh throttle khi không active
         }
     });
 

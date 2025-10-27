@@ -40,10 +40,11 @@ class SimpleFilter {
             this.saveFilters();
             
             console.log(`✅ Created simple filter config: ${name} (ID: ${filter.id})`);
-            return true;
+            console.log('Filter data:', JSON.stringify(filter, null, 2));
+            return filter; // Return filter object instead of boolean
         } catch (error) {
             console.error('❌ Error creating simple filter config:', error.message);
-            return false;
+            return null;
         }
     }
     
@@ -58,10 +59,11 @@ class SimpleFilter {
         // Commission conditions
         if (conditions.commission) {
             validated.commission = {};
-            if (conditions.commission.min !== undefined) {
+            // Handle both '' (empty string) and undefined
+            if (conditions.commission.min !== undefined && conditions.commission.min !== '') {
                 validated.commission.min = Math.max(0, Math.min(100, parseFloat(conditions.commission.min) || 0));
             }
-            if (conditions.commission.max !== undefined) {
+            if (conditions.commission.max !== undefined && conditions.commission.max !== '') {
                 validated.commission.max = Math.max(0, Math.min(100, parseFloat(conditions.commission.max) || 100));
             }
         }
@@ -69,10 +71,10 @@ class SimpleFilter {
         // Price conditions
         if (conditions.price) {
             validated.price = {};
-            if (conditions.price.min !== undefined) {
+            if (conditions.price.min !== undefined && conditions.price.min !== '') {
                 validated.price.min = Math.max(0, parseInt(conditions.price.min) || 0);
             }
-            if (conditions.price.max !== undefined) {
+            if (conditions.price.max !== undefined && conditions.price.max !== '') {
                 validated.price.max = Math.max(0, parseInt(conditions.price.max) || 10000000);
             }
         }
@@ -80,10 +82,10 @@ class SimpleFilter {
         // Stock conditions
         if (conditions.stock) {
             validated.stock = {};
-            if (conditions.stock.min !== undefined) {
+            if (conditions.stock.min !== undefined && conditions.stock.min !== '') {
                 validated.stock.min = Math.max(0, parseInt(conditions.stock.min) || 0);
             }
-            if (conditions.stock.max !== undefined) {
+            if (conditions.stock.max !== undefined && conditions.stock.max !== '') {
                 validated.stock.max = Math.max(0, parseInt(conditions.stock.max) || 10000);
             }
         }

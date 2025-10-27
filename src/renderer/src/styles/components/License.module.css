@@ -80,10 +80,12 @@
     display: none;
     justify-content: center;
     align-items: center;
+    pointer-events: none; /* Không chặn khi ẩn */
 }
 
 .licenseLockOverlay.show {
     display: flex;
+    pointer-events: auto; /* Chỉ bật pointer events khi hiển thị */
 }
 
 .lockContent {

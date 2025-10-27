@@ -13,6 +13,17 @@
     padding: 20px;
 }
 
+.modal-overlay.hidden {
+    display: none;
+    pointer-events: none;
+}
+
+.modal-overlay.closed {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
 .modal {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(20px);
@@ -84,6 +95,16 @@
     padding: 30px;
     overflow-y: auto;
     flex: 1;
+}
+
+/* Đảm bảo mọi element trong modal có thể focus */
+.modal input, .modal textarea, .modal select, .modal button, .modal a {
+    pointer-events: auto;
+    cursor: default;
+}
+
+.modal input, .modal textarea, .modal select {
+    cursor: text;
 }
 
 /* Responsive */
